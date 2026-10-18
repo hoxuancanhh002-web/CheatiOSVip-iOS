@@ -75,19 +75,19 @@ struct ContentView: View {
 
                 Spacer()
 
-                if let err = vpn.errorMessage {
-                    Text(err)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.red)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 20)
-                }
-
                 Text("Bật VPN trước khi mở Free Fire")
                     .font(.system(size: 11))
                     .foregroundColor(Color(white: 0.3))
                     .padding(.bottom, 12)
             }
+        }
+        .alert("Lỗi VPN", isPresented: Binding(
+            get: { vpn.errorMessage != nil },
+            set: { if !$0 { vpn.errorMessage = nil } }
+        )) {
+            Button("OK") { vpn.errorMessage = nil }
+        } message: {
+            Text(vpn.errorMessage ?? "")
         }
     }
 }
