@@ -86,7 +86,7 @@ struct ContentView: View {
 
 extension Color {
     init(hex: String) {
-        var h = hex.trimmingCharacters(in: .alphanumerics.inverted)
+        let h = hex.trimmingCharacters(in: .alphanumerics.inverted)
         var v: UInt64 = 0
         Scanner(string: h).scanHexInt64(&v)
         let r = Double((v >> 16) & 0xFF) / 255
