@@ -10,5 +10,10 @@
     </array>
     <key>CFBundleDisplayName</key>
     <string>CheatiOSVip</string>
+    <key>LSApplicationQueriesSchemes</key>
+    <array>
+        <string>App-Prefs</string>
+        <string>prefs</string>
+    </array>
 </dict>
 </plist>

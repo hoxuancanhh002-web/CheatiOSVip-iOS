@@ -38,15 +38,19 @@ class VPNManager: ObservableObject {
     }
 
     func openVPNSettings() {
-        // iOS 16+: mở thẳng trang VPN trong Settings
-        if let url = URL(string: "App-Prefs:root=VPN") {
-            if UIApplication.shared.canOpenURL(url) {
+        let candidates = [
+            "App-Prefs:root=VPN",
+            "prefs:root=VPN",
+            "App-Prefs:VPN",
+        ]
+        for scheme in candidates {
+            if let url = URL(string: scheme), UIApplication.shared.canOpenURL(url) {
                 UIApplication.shared.open(url)
                 return
             }
         }
-        // Fallback
-        if let url = URL(string: UIApplication.openSettingsURLString) {
+        // Fallback: open root Settings, user navigates manually
+        if let url = URL(string: "App-Prefs:") ?? URL(string: "prefs:") {
             UIApplication.shared.open(url)
         }
     }
