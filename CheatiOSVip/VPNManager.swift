@@ -1,5 +1,5 @@
+import UIKit
 import Network
-import Combine
 
 class VPNManager: ObservableObject {
     @Published var isVPNActive: Bool = false
