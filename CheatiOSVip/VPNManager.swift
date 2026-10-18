@@ -3,6 +3,7 @@ import Security
 
 class VPNManager: ObservableObject {
     @Published var status: NEVPNStatus = .invalid
+    @Published var errorMessage: String?
 
     private let manager = NEVPNManager.shared()
 
@@ -46,8 +47,15 @@ class VPNManager: ObservableObject {
     }
 
     private func connect() {
-        manager.loadFromPreferences { [weak self] _ in
+        manager.loadFromPreferences { [weak self] error in
             guard let self else { return }
+
+            if let error = error {
+                DispatchQueue.main.async {
+                    self.errorMessage = "LoadPref: \(error.localizedDescription)"
+                }
+                return
+            }
 
             let proto = NEVPNProtocolIKEv2()
             proto.serverAddress = "proxy.cheatiosvip.net"
@@ -68,7 +76,6 @@ class VPNManager: ObservableObject {
             proto.useExtendedAuthentication = true
             proto.disconnectOnSleep = false
 
-            // Proxy — same as mobileconfig
             let proxy = NEProxySettings()
             proxy.httpEnabled = true
             proxy.httpServer = NEProxyServer(address: "proxy.cheatiosvip.net", port: 8888)
@@ -86,10 +93,22 @@ class VPNManager: ObservableObject {
             self.manager.localizedDescription = "CheatiOSVip VPN"
             self.manager.isEnabled = true
 
-            self.manager.saveToPreferences { [weak self] _ in
+            self.manager.saveToPreferences { [weak self] error in
                 guard let self else { return }
+                if let error = error {
+                    DispatchQueue.main.async {
+                        self.errorMessage = "SavePref: \(error.localizedDescription)"
+                    }
+                    return
+                }
                 self.manager.loadFromPreferences { [weak self] _ in
-                    try? self?.manager.connection.startVPNTunnel()
+                    do {
+                        try self?.manager.connection.startVPNTunnel()
+                    } catch {
+                        DispatchQueue.main.async {
+                            self?.errorMessage = "Start: \(error.localizedDescription)"
+                        }
+                    }
                 }
             }
         }
