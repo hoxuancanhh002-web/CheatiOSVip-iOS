@@ -13,8 +13,6 @@ targets:
       path: CheatiOSVip/Info.plist
     sources:
       - path: CheatiOSVip
-    dependencies:
-      - sdk: NetworkExtension.framework
     entitlements:
       path: CheatiOSVip/CheatiOSVip.entitlements
     settings:
