@@ -1,134 +1,53 @@
-import NetworkExtension
-import Security
+import Network
+import Combine
 
 class VPNManager: ObservableObject {
-    @Published var status: NEVPNStatus = .invalid
+    @Published var isVPNActive: Bool = false
     @Published var errorMessage: String?
 
-    private let manager = NEVPNManager.shared()
-
-    var isConnected: Bool { status == .connected }
-    var isConnecting: Bool { status == .connecting || status == .reasserting }
-
-    var statusText: String {
-        switch status {
-        case .connected:     return "Đã kết nối"
-        case .connecting:    return "Đang kết nối..."
-        case .disconnecting: return "Đang ngắt..."
-        case .reasserting:   return "Đang kết nối lại..."
-        case .disconnected, .invalid: return "Chưa kết nối"
-        @unknown default:    return "Không xác định"
-        }
-    }
+    private let monitor = NWPathMonitor()
+    private let queue = DispatchQueue(label: "vpn.monitor")
 
     init() {
-        loadStatus()
-        NotificationCenter.default.addObserver(
-            forName: .NEVPNStatusDidChange,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in self?.loadStatus() }
-    }
-
-    private func loadStatus() {
-        manager.loadFromPreferences { [weak self] _ in
+        monitor.pathUpdateHandler = { [weak self] path in
+            let active = path.usesInterfaceType(.other) || self?.checkVPNInterface() == true
             DispatchQueue.main.async {
-                self?.status = self?.manager.connection.status ?? .invalid
+                self?.isVPNActive = active
             }
         }
+        monitor.start(queue: queue)
     }
 
-    func toggle() {
-        if isConnected || isConnecting {
-            manager.connection.stopVPNTunnel()
-        } else {
-            connect()
+    private func checkVPNInterface() -> Bool {
+        var ifaddr: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddr) == 0 else { return false }
+        defer { freeifaddrs(ifaddr) }
+        var ptr = ifaddr
+        while let current = ptr {
+            let name = String(cString: current.pointee.ifa_name)
+            if name.hasPrefix("utun") || name.hasPrefix("ipsec") || name.hasPrefix("ppp") {
+                return true
+            }
+            ptr = current.pointee.ifa_next
         }
+        return false
     }
 
-    private func connect() {
-        manager.loadFromPreferences { [weak self] error in
-            guard let self else { return }
+    var statusText: String {
+        isVPNActive ? "Đã kết nối" : "Chưa kết nối"
+    }
 
-            if let error = error {
-                DispatchQueue.main.async {
-                    self.errorMessage = "LoadPref: \(error.localizedDescription)"
-                }
+    func openVPNSettings() {
+        // iOS 16+: mở thẳng trang VPN trong Settings
+        if let url = URL(string: "App-Prefs:root=VPN") {
+            if UIApplication.shared.canOpenURL(url) {
+                UIApplication.shared.open(url)
                 return
             }
-
-            let proto = NEVPNProtocolIKEv2()
-            proto.serverAddress = "proxy.cheatiosvip.net"
-            proto.remoteIdentifier = "proxy.cheatiosvip.net"
-            proto.localIdentifier = "vpn"
-            proto.authenticationMethod = .sharedSecret
-            proto.sharedSecretReference = self.keychainRef(
-                service: "net.cheatiosvip.app.psk",
-                account: "psk",
-                value: "vpn"
-            )
-            proto.username = "vpn"
-            proto.passwordReference = self.keychainRef(
-                service: "net.cheatiosvip.app.password",
-                account: "vpn",
-                value: "vpn"
-            )
-            proto.useExtendedAuthentication = true
-            proto.disconnectOnSleep = false
-
-            let proxy = NEProxySettings()
-            proxy.httpEnabled = true
-            proxy.httpServer = NEProxyServer(address: "proxy.cheatiosvip.net", port: 8888)
-            proxy.httpsEnabled = true
-            proxy.httpsServer = NEProxyServer(address: "proxy.cheatiosvip.net", port: 8888)
-            proxy.exceptionList = [
-                "*.garena.com", "*.garena.gg", "*.sea.com",
-                "*.seagroup.com", "*.razer.com",
-                "*.facebook.com", "*.facebook.net", "*.fbcdn.net",
-                "*.appsflyersdk.com", "*.ppmainecoonghj.com"
-            ]
-            proto.proxySettings = proxy
-
-            self.manager.protocolConfiguration = proto
-            self.manager.localizedDescription = "CheatiOSVip VPN"
-            self.manager.isEnabled = true
-
-            self.manager.saveToPreferences { [weak self] error in
-                guard let self else { return }
-                if let error = error {
-                    DispatchQueue.main.async {
-                        self.errorMessage = "SavePref: \(error.localizedDescription)"
-                    }
-                    return
-                }
-                self.manager.loadFromPreferences { [weak self] _ in
-                    do {
-                        try self?.manager.connection.startVPNTunnel()
-                    } catch {
-                        DispatchQueue.main.async {
-                            self?.errorMessage = "Start: \(error.localizedDescription)"
-                        }
-                    }
-                }
-            }
         }
-    }
-
-    private func keychainRef(service: String, account: String, value: String) -> Data {
-        let data = value.data(using: .utf8)!
-        let q: [CFString: Any] = [
-            kSecClass: kSecClassGenericPassword,
-            kSecAttrService: service,
-            kSecAttrAccount: account,
-            kSecValueData: data,
-            kSecReturnPersistentRef: true,
-            kSecAttrAccessible: kSecAttrAccessibleAfterFirstUnlock
-        ]
-        SecItemDelete(q as CFDictionary)
-        var ref: AnyObject?
-        if SecItemAdd(q as CFDictionary, &ref) == errSecSuccess, let d = ref as? Data {
-            return d
+        // Fallback
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
         }
-        return data
     }
 }
