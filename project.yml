@@ -1,0 +1,25 @@
+name: CheatiOSVip
+options:
+  bundleIdPrefix: net.cheatiosvip
+  deploymentTarget:
+    iOS: "15.0"
+  xcodeVersion: "15.0"
+
+targets:
+  CheatiOSVip:
+    type: application
+    platform: iOS
+    info:
+      path: CheatiOSVip/Info.plist
+    sources:
+      - path: CheatiOSVip
+    entitlements:
+      path: CheatiOSVip/CheatiOSVip.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.cheatiosvip.app
+        SWIFT_VERSION: "5.9"
+        IPHONEOS_DEPLOYMENT_TARGET: "15.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: $(TEAM_ID)
